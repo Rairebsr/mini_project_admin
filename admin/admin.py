@@ -18,7 +18,7 @@ admin.secret_key = 'your_secret_key'
 
 # MongoDB connection
 client = MongoClient('mongodb://localhost:27017/')
-db = client['mini']
+db = client['miniproject']
 
 # Collections
 admin_collection = db['admins']
@@ -522,8 +522,8 @@ def add_student():
                     if reg_no:
                         existing = student_collection.find_one({
                             'reg_no': reg_no,
-                            'clg_id': session['clg_id'],
-                            'univ_code': session['univ_code']
+                            'clg_id': clg_id,
+                            'univ_code': univ_code
                         })
 
                         if not existing:
@@ -533,8 +533,8 @@ def add_student():
                                 "univ_no": univ_no,
                                 "batch": batch,
                                 "dept_code": dept_code,
-                                "univ_code": session['univ_code'],
-                                "clg_id": session['clg_id'],
+                                "univ_code": univ_code,
+                                "clg_id": clg_id,
                                 "admin_id": session['admin_id']
                             })
                         else:
@@ -631,11 +631,24 @@ def search_students():
     univ_no = request.args.get("univ_no", "").strip()
 
     print(f"Received Batch: '{batch}', Dept Code: '{dept_code}', univ_id: '{univ_no}'")  # Debugging
+    query = {"clg_id": clg_id}
+    if batch:
+        query["batch"] = batch
+    if dept_code:
+        query["dept_code"] = dept_code
+    if univ_no:
+        query["univ_no"] = univ_no
 
-    
-    
+    students = list(student_collection.find(query))  # ✅ Do not exclude _id
 
-    students = list(student_collection.find({"univ_no":univ_no,"batch":batch,"dept_code":dept_code,"clg_id":clg_id}, {"_id": 0}))
+    if not students:
+        print("No students found.")
+
+    # Convert `_id` to string before sending response
+    for student in students:
+        student['_id'] = str(student['_id'])
+
+    print(students)  # Debugging: See if _id is included
 
     return jsonify(students), 200
 
@@ -691,8 +704,8 @@ def update_student(student_id):
         return jsonify({"message": "Student updated successfully!"}), 200
     else:
         return jsonify({"error": "Failed to update student!"}), 400
-    
-    
+
+
 @admin.route('/add_schema', methods=['GET', 'POST'])
 def add_schema():
     if 'admin_id' not in session:
