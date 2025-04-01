@@ -51,7 +51,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let dept_code = document.getElementById("search_dept_code").value.trim();
         let univ_no = document.getElementById("search_univ_no").value.trim();
 
-        console.log("Batch:", batch, "Dept Code:", dept_code, "University No:", univ_no);
+        console.log("Searching students with:", { batch, dept_code, univ_no });
 
         fetch(`/search_students?batch=${encodeURIComponent(batch)}&dept_code=${encodeURIComponent(dept_code)}&univ_no=${encodeURIComponent(univ_no)}`)
             .then(response => response.json())
@@ -59,12 +59,13 @@ document.addEventListener("DOMContentLoaded", function () {
                 let resultsDiv = document.getElementById("student-results");
                 resultsDiv.innerHTML = ""; // Clear previous results
 
-                if (data.length === 0) {
+                if (!Array.isArray(data) || data.length === 0) {
                     resultsDiv.innerHTML = "<p>No students found.</p>";
                     return;
                 }
 
-                let table = `<table>
+                let table = `<div class="table-responsive">
+                <table border="1" id="studentTable">
                     <thead>
                         <tr>
                             <th>University No</th>
@@ -72,26 +73,86 @@ document.addEventListener("DOMContentLoaded", function () {
                             <th>Registration No</th>
                             <th>Batch</th>
                             <th>Semester</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
-                        ${data.map(student => `
-                            <tr>
+                    ${data.map(student => {
+                        console.log("Processing student:", student); // Debugging log
+                        return `
+                            <tr data-id="${student._id}">
                                 <td>${student.univ_no}</td>
                                 <td>${student.name}</td>
                                 <td>${student.reg_no}</td>
                                 <td>${student.batch}</td>
                                 <td>${student.semester}</td>
-                            </tr>
-                        `).join("")}
-                    </tbody>
-                </table>`;
+                                <td>
+                                    <button class="edit-btn" data-id="${student._id}">Edit</button>
+                                    <button class="delete-btn" data-id="${student._id}">Delete</button>
+                                </td>
+                            </tr>`;
+                    }).join("")}
+                </tbody>
+
+                </table>
+            </div>`;
+
 
                 resultsDiv.innerHTML = table;
             })
-            .catch(error => console.error("Error searching students:", error));
+            .catch(error => {
+                console.error("Error searching students:", error);
+                document.getElementById("student-results").innerHTML = "<p>Error retrieving student data.</p>";
+            });
     });
+
+    // Attach event listeners for dynamically generated buttons
+    document.getElementById("student-results").addEventListener("click", function (event) {
+        if (event.target.classList.contains("edit-btn")) {
+            let studentId = event.target.getAttribute("data-id"); // Correctly fetch student ID
+            console.log("Edit button clicked. Student ID:", studentId);
+    
+            if (studentId && studentId !== "undefined") {
+                openEditModal(studentId);
+            } else {
+                console.error("Error: Student ID is missing or undefined.");
+            }
+        }
+    });
+    
 });
+
+// 🔹 Open Edit Modal and Fetch Data
+function openEditModal(studentId) {
+    console.log("Opening edit modal for student:", studentId);  // Debugging log
+
+    fetch(`/get_student/${studentId}`)
+        .then(response => response.json())
+        .then(student => {
+            console.log("Student data received:", student);  // Debugging log
+
+            if (!student || student.error) {
+                console.error("Error fetching student:", student.error || "Unknown error");
+                return;
+            }
+
+            document.getElementById("edit_name").value = student.name || "";
+            document.getElementById("edit_reg_no").value = student.reg_no || "";
+            document.getElementById("edit_batch").value = student.batch || "";
+            document.getElementById("edit_univ_no").value = student.univ_no || "";
+            document.getElementById("edit_dept_code").value = student.dept_code || "";
+
+            document.getElementById("editStudentForm").dataset.studentId = studentId;
+            document.getElementById("editModal").style.display = "block";
+        })
+        .catch(error => console.error("Error fetching student details:", error));
+}
+
+
+// 🔹 Close Edit Modal
+function closeEditModal() {
+    document.getElementById("editModal").style.display = "none";
+}
 
 
 // Edit Student
@@ -141,6 +202,26 @@ document.getElementById("editStudentForm").addEventListener("submit", function (
             }
         })
         .catch((error) => console.error("Error updating student:", error));
+});
+// Attach event listeners for dynamically generated buttons
+document.getElementById("student-results").addEventListener("click", function (event) {
+    if (event.target.classList.contains("edit-btn")) {
+        let studentId = event.target.getAttribute("data-id");
+        if (studentId && studentId !== "undefined") {
+            openEditModal(studentId);
+        } else {
+            console.error("Error: Student ID is missing or undefined.");
+        }
+    }
+
+    if (event.target.classList.contains("delete-btn")) {
+        let studentId = event.target.getAttribute("data-id");
+        if (studentId && studentId !== "undefined") {
+            deletestudent(studentId);
+        } else {
+            console.error("Error: Student ID is missing or undefined.");
+        }
+    }
 });
 
 // Delete Student
